@@ -19,12 +19,31 @@ class EncoderCNN(nn.Module):
         #  use pooling or only strides, use any activation functions,
         #  use BN or Dropout, etc.
         # ====== YOUR CODE: ======
-        pass
+        self.conv1 = nn.Conv2d(in_channels, 64, kernel_size=5, stride=2, padding=1)
+        self.bn1 = nn.BatchNorm2d(64)
+        self.relu1 = nn.ReLU()
+        self.conv2 = nn.Conv2d(64, 512, kernel_size=5, stride=2, padding=1)
+        self.bn2 = nn.BatchNorm2d(512)
+        self.relu2 = nn.ReLU()
+        self.conv3 = nn.Conv2d(512, 1024, kernel_size=5, stride=2, padding=1)
+        self.bn3 = nn.BatchNorm2d(1024)
+        self.relu3 = nn.ReLU()
+
+        self.modules = [self.conv1, self.bn1, self.relu1, self.conv2, self.bn2, self.relu2, self.conv3, self.bn3, self.relu3]
         # ========================
-        self.cnn = nn.Sequential(*modules)
+        self.cnn = nn.Sequential(*self.modules)
 
     def forward(self, x):
-        return self.cnn(x)
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu1(x)
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = self.relu2(x)
+        x = self.conv3(x)
+        x = self.bn3(x)
+        x = self.relu3(x)
+        return x
 
 
 class DecoderCNN(nn.Module):
@@ -42,13 +61,27 @@ class DecoderCNN(nn.Module):
         #  output should be a batch of images, with same dimensions as the
         #  inputs to the Encoder were.
         # ====== YOUR CODE: ======
-        pass
+        self.conv1 = nn.ConvTranspose2d(in_channels, 512, kernel_size=5, stride=2, padding=1)
+        self.bn1 = nn.BatchNorm2d(512)
+        self.relu1 = nn.ReLU()
+        self.conv2 = nn.ConvTranspose2d(512, 64, kernel_size=5, stride=2, padding=1)
+        self.bn2 = nn.BatchNorm2d(64)
+        self.relu2 = nn.ReLU()
+        self.conv3 = nn.ConvTranspose2d(64, out_channels, kernel_size=5, stride=2, padding=1, output_padding=1)
+        self.modules = [self.conv1, self.bn1, self.relu1, self.conv2, self.bn2, self.relu2, self.conv3]
         # ========================
-        self.cnn = nn.Sequential(*modules)
+        self.cnn = nn.Sequential(*self.modules)
 
     def forward(self, h):
         # Tanh to scale to [-1, 1] (same dynamic range as original images).
-        return torch.tanh(self.cnn(h))
+        x = self.conv1(h)
+        x = self.bn1(x)
+        x = self.relu1(x)
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = self.relu2(x)
+        x = self.conv3(x)
+        return torch.tanh(x)
 
 
 class VAE(nn.Module):
