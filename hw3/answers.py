@@ -22,7 +22,24 @@ def part1_rnn_hyperparams():
     )
     # TODO: Set the hyperparameters to train the model.
     # ====== YOUR CODE: ======
-    pass
+    batch_size = 128
+    seq_len = 10
+    h_dim = 128
+    n_layers = 2
+    dropout = 0.1
+    learn_rate = 0.001
+    lr_sched_factor = 0.5
+    lr_sched_patience = 2
+    hypers = dict(
+        batch_size=batch_size,
+        seq_len=seq_len,
+        h_dim=h_dim,
+        n_layers=n_layers,
+        dropout=dropout,
+        learn_rate=learn_rate,
+        lr_sched_factor=lr_sched_factor,
+        lr_sched_patience=lr_sched_patience,
+    )
     # ========================
     return hypers
 
@@ -38,7 +55,12 @@ def part1_generation_params():
 
 
 part1_q1 = r"""
-**Your answer:**
+There are a few reasons why we split the corpus into sequences and not train on the entire corpus as one batch:
+1. If we'd use the entire corpus at once, we'd have a computational graph that's the length of the entire corpus - that is more than 6 milion steps in the gradient calculation and the forwrad calculation.
+This would require to hole a huge amount of memory at once, and also the calculations would be very long.
+2. Splitting the corpus into sequences optimizes on using a gpu, that can make the gradient claultaions parallel on batches.
+3. There is no big advantage in using  the entire corpus at once, since language is mostly local.
+The first word in the corpus belongs to 1 play, and mearly doesn't affect qwords from the second play.
 """
 
 part1_q2 = r"""
