@@ -89,25 +89,49 @@ def part2_vae_hyperparams():
     )
     # TODO: Tweak the hyperparameters to generate a former president.
     # ====== YOUR CODE: ======
-    pass
+    hypers['batch_size'] = 64
+    hypers['h_dim'] = 256
+    hypers['z_dim'] = 128
+    hypers['x_sigma2'] = 0.0999
+    hypers['learn_rate'] = 0.0001
+    hypers['betas'] = (0.6, 0.8)
     # ========================
     return hypers
 
 
 part2_q1 = r"""
-**Your answer:**
+The sigma squared here is a hyperparameter used to construct the loss function. It divides the first part of the loss
+if the vae, which is the MSE loss of the prediction from the actual distribution. When x_sigma2 is increased, we panalyze less on this part of the loss, and we increase
+the significance of the kldiv loss - which measures the similatiry of the distribution we produced to a normal distribution.
+This means we only care about producing a normal distribution over the latent space, and we don't care about the proximity of our produced samples to the actual distribution.
+What will happen is that even though sampling works good, the actual images produced will be not that close to the original images.
+
+On the opposite, when we decrease x_sigma2, we increase the weight of the MSE loss of the prediction to the actual distribution, and we care less about the kldiv part of the loss.
+The affect would be that even though we are able to memorize the training data and get good results on the samples from it,
+the sampling will now work and when we try to create new samples by sampling from a gaussian we will get poorly produced samples.
 """
 
 part2_q2 = r"""
-**Your answer:**
+1. The reconstruction loss is the MSE loss of the prediction from the actual distribution - this is important to actually produce images that are close to the 
+original distribution.
+The kldiv loss is the KL divergence between the distribution we produced and a normal distribution. This part is crucial for the sampling to work - 
+we want to sample from a normal distribution for the sampling to work.
+2. The kldiv term in the loss measures the simpliary of the posterior of the encoder in the latent space - how likely we are to get z for x given sample x.
+Because for sampling we want to use a regular gaussian distribution, we want the posterior to be as close to a gaussian as possible.
+The kldiv term minimizes the distance between the posterior and a gaussian distribution.
+3. This affect is crucial for the sampling to work and create good samples in the input space.
+It improves generalization - we require the model to create a smooth distribution of the encoder over the latent space, and not send different samples to different regions in that space.
 """
 
 part2_q3 = r"""
-**Your answer:**
+In generative models, we want to study a distibution that matches our samples.
+To do that, we want to maximize the likelihood of the samples given by some distribution.
+This is a general term for training generative models - we want to maximize the likelihood of the samples given by the model.
 """
 
 part2_q4 = r"""
-**Your answer:**
+The reason we use the log of the varience, is that because varience is strictly positive, but the model could learn negative values as well.
+For the model to learn the varience, it needs to be positive, and the log of the varience is a way to ensure that.
 """
 
 

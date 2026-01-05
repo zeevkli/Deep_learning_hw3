@@ -3,9 +3,6 @@ import torch.nn as nn
 import math
 
 
-# Yuval
-
-
 def sliding_window_attention(q, k, v, window_size, padding_mask=None):
     '''
     Computes the simple sliding window attention from 'Longformer: The Long-Document Transformer'.
@@ -23,10 +20,55 @@ def sliding_window_attention(q, k, v, window_size, padding_mask=None):
     embed_dim = q.shape[-1]
     batch_size = q.shape[0]
 
-    values, attention = None, None
 
-    # ====== YOUR CODE: ======
-    pass
+    orig_has_heads = (q.dim() == 4)
+    if q.dim() == 3:
+        q = q.unsqueeze(1)
+        k = k.unsqueeze(1)
+        v = v.unsqueeze(1)
+    elif q.dim() != 4:
+        raise ValueError(f"Expected q to have 3 or 4 dims, got {q.dim()}")
+
+    B, H, L, D = q.shape
+    w = window_size // 2
+
+    # Full dot-product scores: [B, H, L, L]
+    scores = torch.einsum("bhld,bhmd->bhlm", q, k) / math.sqrt(D)
+
+    # Local window mask: allow positions within +/-w (including self)
+    idx = torch.arange(L, device=q.device)
+    local_mask = (idx[None, :] - idx[:, None]).abs() <= w   # [L, L] boolean
+    # Mask out-of-window with large negative value
+    neg_inf = torch.finfo(scores.dtype).min
+    scores = scores.masked_fill(~local_mask[None, None, :, :], neg_inf)
+
+    # Padding mask (mask keys; and also handle padded queries)
+    if padding_mask is not None:
+        # padding_mask: 1=valid, 0=pad
+        key_pad = (padding_mask == 0).to(scores.device)          # [B, L]
+        scores = scores.masked_fill(key_pad[:, None, None, :], neg_inf)
+
+        # If a query position is padding, force its attention to all zeros later
+        query_pad = key_pad[:, None, :, None]                    # [B, 1, L, 1]
+    else:
+        query_pad = None
+
+    # Softmax over keys
+    attention = torch.softmax(scores, dim=-1)  # [B, H, L, L]
+
+    # If query is padding, set attention to 0 (avoid meaningless outputs)
+    if query_pad is not None:
+        attention = attention.masked_fill(query_pad, 0.0)
+
+    # Compute values: [B, H, L, D]
+    values = torch.einsum("bhlm,bhmd->bhld", attention, v)
+
+    # Return in original shape
+    if not orig_has_heads:
+        values = values.squeeze(1)       # [B, L, D]
+        attention = attention.squeeze(1) # [B, L, L]
+
+    
     # ======================
 
     return values, attention

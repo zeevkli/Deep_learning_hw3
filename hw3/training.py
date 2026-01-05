@@ -83,7 +83,7 @@ class Trainer(abc.ABC):
                 self.model.load_state_dict(saved_state["model_state"])
 
         for epoch in range(num_epochs):
-            save_checkpoint = False
+            save_checkpoint = True
             verbose = False  # pass this to train/test_epoch.
             if epoch % print_every == 0 or epoch == num_epochs - 1:
                 verbose = True
@@ -112,6 +112,7 @@ class Trainer(abc.ABC):
                 # ========================
             else:
                 # ====== YOUR CODE: ======
+                print(f"Early stopping at epoch {epoch + 1}")
                 epochs_without_improvement += 1
                 if early_stopping is not None and epochs_without_improvement >= early_stopping:
                     break
@@ -308,9 +309,41 @@ class VAETrainer(Trainer):
         x, _ = batch
         x = x.to(self.device)  # Image batch (N,C,H,W)
         # TODO: Train a VAE on one batch.
-        # ====== YOUR CODE: ======
-        pass
-        # ========================
+        xr, mu, log_sigma2 = self.model(x)
+
+        # Loss
+        loss, data_loss, kldiv_loss = vae_loss(
+            x=x,
+            xr=xr,
+            z_mu=mu,
+            z_log_sigma2=log_sigma2,
+            x_sigma2=self.model.x_sigma2 if hasattr(self.model, "x_sigma2") else 1.0
+        )
+
+        # Backprop + update
+        loss.backward()
+        self.optimizer.step()
+
+        return BatchResult(loss.item(), 1 / data_loss.item())
+
+    def test_batch(self, batch) -> BatchResult:
+        x, _ = batch
+        x = x.to(self.device)  # (N,C,H,W)
+
+        with torch.no_grad():
+            # Forward
+            xr, mu, log_sigma2 = self.model(x)
+
+            # Loss
+            loss, data_loss, kldiv_loss = vae_loss(
+                x=x,
+                xr=xr,
+                z_mu=mu,
+                z_log_sigma2=log_sigma2,
+                x_sigma2=self.model.x_sigma2
+            )
+        loss.backward()
+        self.optimizer.step()
 
         return BatchResult(loss.item(), 1 / data_loss.item())
 
@@ -321,8 +354,16 @@ class VAETrainer(Trainer):
         with torch.no_grad():
             # TODO: Evaluate a VAE on one batch.
             # ====== YOUR CODE: ======
-            pass
-            # ========================
+            xr, mu, log_sigma2 = self.model(x)
+
+            # Loss
+            loss, data_loss, kldiv_loss = vae_loss(
+                x=x,
+                xr=xr,
+                z_mu=mu,
+                z_log_sigma2=log_sigma2,
+                x_sigma2=self.model.x_sigma2 if hasattr(self.model, "x_sigma2") else 1.0
+            )
 
         return BatchResult(loss.item(), 1 / data_loss.item())
 
