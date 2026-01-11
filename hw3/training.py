@@ -70,6 +70,7 @@ class Trainer(abc.ABC):
         best_test_loss = None
 
         checkpoint_filename = None
+    
         if checkpoints is not None:
             checkpoint_filename = f"{checkpoints}.pt"
             Path(os.path.dirname(checkpoint_filename)).mkdir(exist_ok=True)
@@ -81,7 +82,6 @@ class Trainer(abc.ABC):
                     "ewi", epochs_without_improvement
                 )
                 self.model.load_state_dict(saved_state["model_state"])
-
         for epoch in range(num_epochs):
             save_checkpoint = True
             verbose = False  # pass this to train/test_epoch.

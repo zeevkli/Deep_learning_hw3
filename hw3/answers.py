@@ -22,14 +22,14 @@ def part1_rnn_hyperparams():
     )
     # TODO: Set the hyperparameters to train the model.
     # ====== YOUR CODE: ======
-    batch_size = 128
-    seq_len = 10
-    h_dim = 128
-    n_layers = 2
-    dropout = 0.1
-    learn_rate = 0.001
-    lr_sched_factor = 0.5
-    lr_sched_patience = 2
+    batch_size=256
+    seq_len=64
+    h_dim=2048
+    n_layers=3
+    dropout=0.3
+    learn_rate=0.001
+    lr_sched_factor=0.5
+    lr_sched_patience=3
     hypers = dict(
         batch_size=batch_size,
         seq_len=seq_len,
@@ -49,7 +49,8 @@ def part1_generation_params():
     temperature = 0.0001
     # TODO: Tweak the parameters to generate a literary masterpiece.
     # ====== YOUR CODE: ======
-    pass
+    start_seq = "ACT I. The king "
+    temperature = 0.04
     # ========================
     return start_seq, temperature
 
@@ -64,15 +65,23 @@ The first word in the corpus belongs to 1 play, and mearly doesn't affect qwords
 """
 
 part1_q2 = r"""
-**Your answer:**
+The way the model can 'memorize' is through the hidden state.
+When we generate test, we give the model an initial short sequence, and every time a character is generated, we make use of the hidden state outputted in the previous step.
+GRU 'learns' how to tasnform the hidden state from iteration to iteraion and in that way memorize things for a long time.
 """
 
 part1_q3 = r"""
-**Your answer:**
+In an RNN model, especially in ours that traines on shakspere's plays, there is no point in shuffling the order of the batches - 
+we want the model to learn the structure of the corpus, and the plays by their order.
+In an RNN model, the hidden state is used to 'memorize' the previous characters, and in that way the model can learn the structure of the corpus.
 """
 
 part1_q4 = r"""
-**Your answer:**
+1. When sampling after the model was trained, we rely on the model's predictions and truat them, so we want to increase the chances of sampling the most likely characters.
+2. When The temrpature is very high, predictions that have different probabilities are 'squeezed' tighter. In this way we can make the model act more randomly, and sometimes predict words that had a lower probability.
+This will make the model more "creative" in a way - it would be able to generate text that has a different structure and meaning than wat it was trained on.
+3. Tuning the temprature to a lower value will make the model more deterministic - the highest probability will have a higher value and the lower ones will be even lower.
+The model will prefer the predictions with the higher probabilities, so it's behavior will not differ much from the text it was trained on.
 """
 # ==============
 

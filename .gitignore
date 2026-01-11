@@ -1,7 +1,11 @@
 .ipynb_checkpoints/Part3_Transformer-checkpoint.ipynb
 checkpoints/*
-cs236781/__pycache__/answers.cpython-38.pyc
-cs236781/__pycache__/download.cpython-38.pyc
+checkpoints/
+cs236781/__pycache__/*.pyc
 hw3/__pycache__/*.pyc
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 toy_transfomer_encoder.pt
 trained_transfomer_encoder.pt
