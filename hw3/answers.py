@@ -89,12 +89,12 @@ def part2_vae_hyperparams():
     )
     # TODO: Tweak the hyperparameters to generate a former president.
     # ====== YOUR CODE: ======
-    hypers['batch_size'] = 64
-    hypers['h_dim'] = 256
+    hypers['learn_rate'] = 0.0003
+    hypers['batch_size'] = 128
+    hypers['betas'] = (0.5, 0.999)
     hypers['z_dim'] = 128
-    hypers['x_sigma2'] = 0.0999
-    hypers['learn_rate'] = 0.0001
-    hypers['betas'] = (0.6, 0.8)
+    hypers['h_dim'] = 1024
+    hypers['x_sigma2'] = 0.001
     # ========================
     return hypers
 
@@ -143,22 +143,41 @@ def part3_transformer_encoder_hyperparams():
         hidden_dim = 0,
         window_size = 0,
         droupout = 0.0,
-        lr=0.0,
+        lr = 0.0,
     )
 
     # TODO: Tweak the hyperparameters to train the transformer encoder.
     # ====== YOUR CODE: ======
-    pass
+    hypers['embed_dim'] = 128
+    hypers['num_heads'] = 8
+    hypers['num_layers'] = 2
+    hypers['hidden_dim'] = 256  
+    hypers['window_size'] = 128
+    hypers['dropout'] = 0.2
+    hypers['lr'] = 0.001
     # ========================
     return hypers
 
 
 part3_q1 = r"""
-**Your answer:**
+Stacking up attention layers with sliding windows is similar to the way stacking up CNN layers
+in a convolutional neural network increses the receptive fields of the window in later layers in the model.
+In the first layer, each token is only affected by it's neighbors from the small window.
+Then, in the nest layer, when the token's already reprsent not just themself but the window surrounding them.
+Then, apllying sliding window attention again allos the model to have a wider context in the sentence.
 """
 
 part3_q2 = r"""
-**Your answer:**
+One way to make the context bigger is to use a kinf of dialitaon when we apply the attention.
+For half of the window we have, we will use the reular method suggeted - look w/4 to the left and to the right when apllying the attention.
+Then, we will use the other half of the window size we have left as a dialitaed window, multiplying keys in indexes with jumps of 2.
+Overall, each of the n tokens will be multiplied by w keys, so we get a complecity of O(n*w).
+analyzing the amount of layers taken for all the tokens to influence each other, we will get that if the original amount of layers was n
+and the context to every side was w/2, now the context to each side is 3w/4, so it will take 3n/4 layers to influence each other.
+That way, every token will be influenced by a smaller window adjacent to it, but a wider window overall.
+After the first layer, when the tokens in the dialited window have been influenced by their surrounding tokens, 
+the multiplication in the dialited window will also be influenced by these tokens, even though we havent directly calculated the multiplication with their indexes.
+The limitation to this method, is that the first windows will be smaller in the area adjcant to the token, so the tokens after w/4 to the sides of this token will take a longer time to influence this token.
 """
 
 # ==============

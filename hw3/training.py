@@ -309,39 +309,19 @@ class VAETrainer(Trainer):
         x, _ = batch
         x = x.to(self.device)  # Image batch (N,C,H,W)
         # TODO: Train a VAE on one batch.
-        xr, mu, log_sigma2 = self.model(x)
+        xr, mu, z_log_sigma2 = self.model(x)
 
-        # Loss
-        loss, data_loss, kldiv_loss = vae_loss(
-            x=x,
-            xr=xr,
-            z_mu=mu,
-            z_log_sigma2=log_sigma2,
-            x_sigma2=self.model.x_sigma2 if hasattr(self.model, "x_sigma2") else 1.0
-        )
+        # # Loss
+        # loss, data_loss, kldiv_loss = vae_loss(
+        #     x=x,
+        #     xr=xr,
+        #     z_mu=mu,
+        #     z_log_sigma2=log_sigma2,
+        #     x_sigma2=self.loss_fn.x_sigma2
+        # )
+        self.optimizer.zero_grad()
+        loss, data_loss, kldiv_loss = self.loss_fn(x, xr, mu, z_log_sigma2)
 
-        # Backprop + update
-        loss.backward()
-        self.optimizer.step()
-
-        return BatchResult(loss.item(), 1 / data_loss.item())
-
-    def test_batch(self, batch) -> BatchResult:
-        x, _ = batch
-        x = x.to(self.device)  # (N,C,H,W)
-
-        with torch.no_grad():
-            # Forward
-            xr, mu, log_sigma2 = self.model(x)
-
-            # Loss
-            loss, data_loss, kldiv_loss = vae_loss(
-                x=x,
-                xr=xr,
-                z_mu=mu,
-                z_log_sigma2=log_sigma2,
-                x_sigma2=self.model.x_sigma2
-            )
         loss.backward()
         self.optimizer.step()
 
@@ -354,16 +334,10 @@ class VAETrainer(Trainer):
         with torch.no_grad():
             # TODO: Evaluate a VAE on one batch.
             # ====== YOUR CODE: ======
-            xr, mu, log_sigma2 = self.model(x)
+            xr, mu, z_log_sigma2 = self.model(x)
 
             # Loss
-            loss, data_loss, kldiv_loss = vae_loss(
-                x=x,
-                xr=xr,
-                z_mu=mu,
-                z_log_sigma2=log_sigma2,
-                x_sigma2=self.model.x_sigma2 if hasattr(self.model, "x_sigma2") else 1.0
-            )
+            loss, data_loss, kldiv_loss = self.loss_fn(x, xr, mu, z_log_sigma2)
 
         return BatchResult(loss.item(), 1 / data_loss.item())
 
@@ -407,7 +381,9 @@ class TransformerEncoderTrainer(Trainer):
             # TODO:
             #  fill out the testing loop.
             # ====== YOUR CODE: ======
-            pass
+            x = self.model(input_ids, attention_mask).to(self.device)
+            loss = self.loss_fn(x.squeeze(-1), label)
+            num_correct = (torch.round(torch.sigmoid(x)).squeeze(-1) == label).sum()
             # ========================
 
 

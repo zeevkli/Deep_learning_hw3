@@ -25,25 +25,19 @@ class EncoderCNN(nn.Module):
         self.conv2 = nn.Conv2d(64, 128, kernel_size=5, stride=2, padding=1)
         self.bn2 = nn.BatchNorm2d(128)
         self.relu2 = nn.ReLU()
-        self.conv3 = nn.Conv2d(128, out_channels, kernel_size=5, stride=2, padding=1)
-        self.bn3 = nn.BatchNorm2d(out_channels)
+        self.conv3 = nn.Conv2d(128, 256, kernel_size=5, stride=2, padding=1)
+        self.bn3 = nn.BatchNorm2d(256)
         self.relu3 = nn.ReLU()
+        self.conv4 = nn.Conv2d(256, out_channels, kernel_size=5, stride=2, padding=1)
+        self.bn4 = nn.BatchNorm2d(out_channels)
+        self.relu4 = nn.ReLU()
 
-        self.modules = [self.conv1, self.bn1, self.relu1, self.conv2, self.bn2, self.relu2, self.conv3, self.bn3, self.relu3]
+        self.modules = [self.conv1, self.bn1, self.relu1, self.conv2, self.bn2, self.relu2, self.conv3, self.bn3, self.relu3, self.conv4, self.bn4, self.relu4]
         # ========================
         self.cnn = nn.Sequential(*self.modules)
 
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu1(x)
-        x = self.conv2(x)
-        x = self.bn2(x)
-        x = self.relu2(x)
-        x = self.conv3(x)
-        x = self.bn3(x)
-        x = self.relu3(x)
-        return x
+        return self.cnn(x)
 
 
 class DecoderCNN(nn.Module):
@@ -61,27 +55,23 @@ class DecoderCNN(nn.Module):
         #  output should be a batch of images, with same dimensions as the
         #  inputs to the Encoder were.
         # ====== YOUR CODE: ======
-        self.conv1 = nn.ConvTranspose2d(in_channels, 128, kernel_size=5, stride=2, padding=1)
-        self.bn1 = nn.BatchNorm2d(128)
+        self.conv1 = nn.ConvTranspose2d(in_channels, 256, kernel_size=5, stride=2, padding=1, output_padding=0)
+        self.bn1 = nn.BatchNorm2d(256)
         self.relu1 = nn.ReLU()
-        self.conv2 = nn.ConvTranspose2d(128, 64, kernel_size=5, stride=2, padding=1)
-        self.bn2 = nn.BatchNorm2d(64)
+        self.conv2 = nn.ConvTranspose2d(256, 128, kernel_size=5, stride=2, padding=1, output_padding=0)
+        self.bn2 = nn.BatchNorm2d(128)
         self.relu2 = nn.ReLU()
-        self.conv3 = nn.ConvTranspose2d(64, out_channels, kernel_size=5, stride=2, padding=1, output_padding=1)
-        self.modules = [self.conv1, self.bn1, self.relu1, self.conv2, self.bn2, self.relu2, self.conv3]
+        self.conv3 = nn.ConvTranspose2d(128, 64, kernel_size=5, stride=2, padding=1, output_padding=0)
+        self.bn3 = nn.BatchNorm2d(64)
+        self.relu3 = nn.ReLU()
+        self.conv4 = nn.ConvTranspose2d(64, out_channels, kernel_size=5, stride=2, padding=1, output_padding=1)
+        self.modules = [self.conv1, self.bn1, self.relu1, self.conv2, self.bn2, self.relu2, self.conv3, self.bn3, self.relu3, self.conv4]
         # ========================
         self.cnn = nn.Sequential(*self.modules)
 
     def forward(self, h):
         # Tanh to scale to [-1, 1] (same dynamic range as original images).
-        x = self.conv1(h)
-        x = self.bn1(x)
-        x = self.relu1(x)
-        x = self.conv2(x)
-        x = self.bn2(x)
-        x = self.relu2(x)
-        x = self.conv3(x)
-        return torch.tanh(x)
+        return torch.tanh(self.cnn(h))
 
 
 class VAE(nn.Module):
@@ -151,7 +141,7 @@ class VAE(nn.Module):
         x_rec = self.features_decoder(h)
         # ========================
         # Scale to [-1, 1] (same dynamic range as original images).
-        return x_rec
+        return torch.tanh(x_rec)
 
     def sample(self, n):
         samples = []

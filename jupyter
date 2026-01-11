@@ -1,1 +1,3 @@
+#!/bin/bash
+
 srun -c 2 --gres=gpu:1 --pty jupyter-lab.sh

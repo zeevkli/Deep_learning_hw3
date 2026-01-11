@@ -3,3 +3,5 @@ checkpoints/*
 cs236781/__pycache__/answers.cpython-38.pyc
 cs236781/__pycache__/download.cpython-38.pyc
 hw3/__pycache__/*.pyc
+toy_transfomer_encoder.pt
+trained_transfomer_encoder.pt
