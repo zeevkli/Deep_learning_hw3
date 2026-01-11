@@ -79,7 +79,7 @@ def onehot_to_chars(embedded_text: Tensor, idx_to_char: dict) -> str:
     """
     # TODO: Implement the reverse-embedding.
     # ====== YOUR CODE: ======
-    chars = [idx_to_char[float(idx)] for idx in embedded_text.argmax(dim=1)]
+    chars = [idx_to_char[int(idx)] for idx in embedded_text.argmax(dim=1)]
     # ========================
     return ''.join(chars)
 

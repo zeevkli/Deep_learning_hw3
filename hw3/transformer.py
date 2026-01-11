@@ -4,6 +4,7 @@ import math
 import torch.nn.functional as F
 
 
+
 def sliding_window_attention(q, k, v, window_size, padding_mask=None):
     '''
     Computes the simple sliding window attention from 'Longformer: The Long-Document Transformer'.
@@ -33,7 +34,7 @@ def sliding_window_attention(q, k, v, window_size, padding_mask=None):
     
     B, H, L, D = q.shape
     w = window_size // 2
-    neg_inf = torch.finfo(q.dtype).min
+    neg_inf = -10e10
 
     k_pad = F.pad(k, (0, 0, w, w))  # [B,H,L+2w,D]
     v_pad = F.pad(v, (0, 0, w, w))
@@ -61,8 +62,8 @@ def sliding_window_attention(q, k, v, window_size, padding_mask=None):
 
         query_pad = key_pad[:, None, :, None]  # [B,1,L,1]
 
-    # ---- softmax over local window ----
-    attn_local = torch.softmax(scores_local, dim=-1)  # [B,H,L,2w+1]
+    attn_local = torch.softmax(scores_local, dim=-1)
+    attn_local = torch.nan_to_num(attn_local, nan=0.0)
     if query_pad is not None:
         attn_local = attn_local.masked_fill(query_pad, 0.0)
 
@@ -87,6 +88,11 @@ def sliding_window_attention(q, k, v, window_size, padding_mask=None):
         values = values.squeeze(1)       # [B,L,D]
         attention = attention.squeeze(1) # [B,L,L]
     # ======================
+    # In sliding_window_attention, right before returning values:
+    if padding_mask is not None:
+        # If the query is padding, force output to 0
+        # padding_mask is [Batch, SeqLen] (0=pad, 1=valid)
+        values = values.masked_fill((padding_mask == 0).unsqueeze(-1).unsqueeze(1), 0.0)
 
     return values, attention
 
@@ -231,6 +237,7 @@ class Encoder(nn.Module):
 
         '''
         super().__init__()
+        self.embed_dim = embed_dim
         self.encoder_embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
         self.positional_encoding = PositionalEncoding(embed_dim, max_seq_length)
 
@@ -253,6 +260,7 @@ class Encoder(nn.Module):
 
         # ====== YOUR CODE: ======
         x = self.encoder_embedding(sentence)
+        x = x * math.sqrt(self.embed_dim)
         x = self.positional_encoding(x)
         x = self.dropout(x)
         for layer in self.encoder_layers:

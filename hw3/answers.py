@@ -77,7 +77,7 @@ In an RNN model, the hidden state is used to 'memorize' the previous characters,
 """
 
 part1_q4 = r"""
-1. When sampling after the model was trained, we rely on the model's predictions and truat them, so we want to increase the chances of sampling the most likely characters.
+1. When sampling after the model was trained, we rely on the model's predictions and trust them, so we want to increase the chances of sampling the most likely characters.
 2. When The temrpature is very high, predictions that have different probabilities are 'squeezed' tighter. In this way we can make the model act more randomly, and sometimes predict words that had a lower probability.
 This will make the model more "creative" in a way - it would be able to generate text that has a different structure and meaning than wat it was trained on.
 3. Tuning the temprature to a lower value will make the model more deterministic - the highest probability will have a higher value and the lower ones will be even lower.
