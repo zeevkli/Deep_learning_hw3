@@ -24,75 +24,86 @@ def sliding_window_attention(q, k, v, window_size, padding_mask=None):
 
 
     # ====== YOUR CODE: ======
-    orig_has_heads = (q.dim() == 4)
-    if q.dim() == 3:
+    multihead = (q.dim() == 4)
+    # if not multihead, add a dimension for heads
+    if not multihead:
         q = q.unsqueeze(1)
         k = k.unsqueeze(1)
         v = v.unsqueeze(1)
-    elif q.dim() != 4:
-        raise ValueError(f"Expected q to have 3 or 4 dims, got {q.dim()}")
+        num_heads = 1
+    else:
+        num_heads = q.shape[1]
     
-    B, H, L, D = q.shape
     w = window_size // 2
-    neg_inf = -10e10
+    neg_number = -1e5
 
-    k_pad = F.pad(k, (0, 0, w, w))  # [B,H,L+2w,D]
+    # pad the keys and values with the window size, so you can apply attention in the boundaries
+    k_pad = F.pad(k, (0, 0, w, w))
     v_pad = F.pad(v, (0, 0, w, w))
 
-    # unfold -> [B,H,L,D,2w+1]  => permute -> [B,H,L,2w+1,D]
+    # unfold the keys and values with the window size, so you can apply attention in the boundaries
     k_win = k_pad.unfold(2, 2 * w + 1, 1).permute(0, 1, 2, 4, 3)
     v_win = v_pad.unfold(2, 2 * w + 1, 1).permute(0, 1, 2, 4, 3)
 
-    # ---- local scores: [B,H,L,2w+1] ----
-    scores_local = (q.unsqueeze(-2) * k_win).sum(dim=-1) / math.sqrt(D)
+    # calculate the scores for the local window
+    scores_local = (q.unsqueeze(-2) * k_win).sum(dim=-1)
 
     # ---- mask out-of-range neighbors at boundaries ----
-    offsets = torch.arange(-w, w + 1, device=q.device)                 # [2w+1]
-    idx = torch.arange(L, device=q.device).unsqueeze(1) + offsets      # [L,2w+1]
-    valid = (idx >= 0) & (idx < L)                                     # [L,2w+1]
-    scores_local = scores_local.masked_fill(~valid[None, None, :, :], neg_inf)
+    # create a mask for the out-of-range neighbors at boundaries
+    offsets = torch.arange(-w, w + 1, device=q.device)                
+    idx = torch.arange(seq_len, device=q.device).unsqueeze(1) + offsets     
+    valid = (idx >= 0) & (idx < seq_len)                                    
+    scores_local = scores_local.masked_fill(~valid[None, None, :, :], neg_number)
 
-    # ---- padding mask: mask KEYS before softmax; zero padded QUERIES after ----
-    query_pad = None
+    # ---- expand to full attention ----
+    attention = torch.full((batch_size, num_heads, seq_len, seq_len), neg_number, device=q.device, dtype=q.dtype)
+
+    # row indices for each local offset
+    row_idx = torch.arange(seq_len, device=q.device).unsqueeze(1).expand(seq_len, 2*w+1)  # [L,2w+1]
+
+    # Keep only valid (row, col) pairs
+    valid_mask = valid  # [L,2w+1] bool
+    rows = row_idx[valid_mask]          # [N]
+    cols = idx[valid_mask]              # [N], guaranteed in [0, L-1]
+
+    # Grab matching scores (same valid positions)
+    scores_flat = scores_local[..., valid_mask]   # [B,H,N]
+
+    # Write them into the full attention matrix
+    attention[..., rows, cols] = scores_flat
+
+    # Key padding mask on full attention (matches working code)
     if padding_mask is not None:
-        key_pad = (padding_mask == 0)  # [B,L] bool
+        mask_key = padding_mask
+        while mask_key.dim() < attention.dim():
+            mask_key = mask_key.unsqueeze(1)   # [B,1,1,L]
+        attention = attention.masked_fill(mask_key == 0, neg_number)
 
-        key_pad_win = F.pad(key_pad, (w, w), value=True).unfold(1, 2 * w + 1, 1)  # [B,L,2w+1]
-        scores_local = scores_local.masked_fill(key_pad_win[:, None, :, :], neg_inf)
-
-        query_pad = key_pad[:, None, :, None]  # [B,1,L,1]
-
-    attn_local = torch.softmax(scores_local, dim=-1)
-    attn_local = torch.nan_to_num(attn_local, nan=0.0)
-    if query_pad is not None:
-        attn_local = attn_local.masked_fill(query_pad, 0.0)
-
-    # ---- local weighted sum ---- 
-    values = (attn_local.unsqueeze(-1) * v_win).sum(dim=-2)  # [B,H,L,D]
-
-    # ---- expand to full attention [B,H,L,L] ----
-    attention = torch.zeros((B, H, L, L), device=q.device, dtype=q.dtype)
-
-    idx_clamped = idx.clamp(0, L - 1)  # NOTE: duplicates at boundaries
-    attn_to_scatter = attn_local * valid[None, None, :, :].to(attn_local.dtype)
-
-    # CRITICAL FIX: scatter_add_ so duplicates don't overwrite (invalid contributes 0 anyway)
-    attention.scatter_add_(
-        dim=-1,
-        index=idx_clamped[None, None, :, :].expand(B, H, L, 2 * w + 1),
-        src=attn_to_scatter
-    )
-
-    # ---- return in original shape ----
-    if not orig_has_heads:
-        values = values.squeeze(1)       # [B,L,D]
-        attention = attention.squeeze(1) # [B,L,L]
-    # ======================
-    # In sliding_window_attention, right before returning values:
+    
     if padding_mask is not None:
-        # If the query is padding, force output to 0
-        # padding_mask is [Batch, SeqLen] (0=pad, 1=valid)
-        values = values.masked_fill((padding_mask == 0).unsqueeze(-1).unsqueeze(1), 0.0)
+        # idx: [L, 2w+1] neighbor indices (some invalid)
+        idx_clamped = idx.clamp(0, seq_len - 1)  # [L, 2w+1]
+
+        # gather key-validity for each neighbor (0 if PAD)
+        neigh_ok = padding_mask.gather(
+            1, idx_clamped.unsqueeze(0).expand(batch_size, -1, -1)
+        )  # [B, L, 2w+1]
+        neigh_ok = neigh_ok.unsqueeze(1)  # [B, 1, L, 2w+1]
+        scores_local = scores_local.masked_fill(neigh_ok == 0, neg_number)
+        # scores_local: [B,H,L,2w+1] (already masked at boundaries)
+    attn_local = torch.softmax(scores_local / math.sqrt(embed_dim), dim=-1)
+    values = (attn_local.unsqueeze(-1) * v_win).sum(dim=-2)
+    # Query padding mask on output (matches working code)
+    
+    attention = torch.full((batch_size, num_heads, seq_len, seq_len), neg_number, device=q.device, dtype=q.dtype)
+
+    # fill only O(L*w) positions
+    row_idx = torch.arange(seq_len, device=q.device).unsqueeze(1).expand(seq_len, 2*w+1)
+    rows = row_idx[valid]
+    cols = idx[valid]  # already in-range where valid=True
+
+    attn_flat = attn_local[..., valid]   # [B,H,N]
+    attention[..., rows, cols] = attn_flat
 
     return values, attention
 
@@ -260,7 +271,7 @@ class Encoder(nn.Module):
 
         # ====== YOUR CODE: ======
         x = self.encoder_embedding(sentence)
-        x = x * math.sqrt(self.embed_dim)
+        # x = x * math.sqrt(self.embed_dim)
         x = self.positional_encoding(x)
         x = self.dropout(x)
         for layer in self.encoder_layers:
@@ -268,7 +279,7 @@ class Encoder(nn.Module):
         classifcation_tokens = x[:, 0, :]
         output = self.classification_mlp(classifcation_tokens)
         
-        output = output.squeeze(-1) 
+        # output = output.squeeze(-1) 
         # =======================
         
         return output  
